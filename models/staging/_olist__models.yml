@@ -1,0 +1,114 @@
+version: 2
+
+models:
+
+  - name: stg_olist__orders
+    description: "Cleaned one-row-per-order view over raw.olist.orders. Grain: order_id."
+    columns:
+      - name: order_id
+        description: "Primary key."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "FK to stg_olist__customers.customer_id. Per-order id, not stable per person."
+        data_tests:
+          - not_null
+
+  - name: stg_olist__customers
+    description: "Cleaned one-row-per-customer_id view. Grain: customer_id (per order, not per person)."
+    columns:
+      - name: customer_id
+        description: "Primary key — unique per order."
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: "Stable person-level identifier. Use for LTV."
+        data_tests:
+          - not_null
+
+  - name: stg_olist__order_items
+    description: "One row per item within an order. Composite PK: (order_id, order_item_id)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - order_item_id
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+      - name: order_item_id
+        data_tests:
+          - not_null
+      - name: product_id
+        data_tests:
+          - not_null
+      - name: seller_id
+        data_tests:
+          - not_null
+
+  - name: stg_olist__order_payments
+    description: "One row per payment transaction. Composite PK: (order_id, payment_sequential)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - payment_sequential
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+      - name: payment_sequential
+        data_tests:
+          - not_null
+
+  - name: stg_olist__order_reviews
+    description: "Zero-or-one review per order. ~800 duplicate review_ids exist by design (edits); dedup lives in intermediate, not here. Hence NO unique test on review_id — the staging invariant is lossless mirror of raw."
+    columns:
+      - name: review_id
+        description: "Not unique at staging (duplicates expected). Dedup in int_order_reviews_deduplicated."
+        data_tests:
+          - not_null
+      - name: order_id
+        data_tests:
+          - not_null
+
+  - name: stg_olist__products
+    description: "One row per product. Portuguese category names — join to stg_olist__product_category_name_translation for English."
+    columns:
+      - name: product_id
+        description: "Primary key."
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_olist__sellers
+    description: "One row per seller."
+    columns:
+      - name: seller_id
+        description: "Primary key."
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_olist__geolocation
+    description: "Zip prefix → lat/lng. NO primary key — zip_code_prefix has intentional duplicates (multiple coords per prefix). Dedup to representative lat/lng per prefix lives in intermediate."
+    columns:
+      - name: zip_code_prefix
+        description: "NOT unique at staging. Dedup in intermediate."
+        data_tests:
+          - not_null
+
+  - name: stg_olist__product_category_name_translation
+    description: "Portuguese → English category name map. One row per category_name_pt."
+    columns:
+      - name: category_name_pt
+        description: "Primary key (join key to products.category_name_pt)."
+        data_tests:
+          - unique
+          - not_null
+      - name: category_name_en
+        data_tests:
+          - not_null

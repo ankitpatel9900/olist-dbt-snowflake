@@ -1,0 +1,51 @@
+version: 2
+
+sources:
+  - name: olist
+    description: "Raw Olist Brazilian e-commerce data loaded via Snowsight into OLIST_DB.RAW. Static dataset (2016–2018); freshness declared on orders only as a CI/convention signal. See DECISIONS_LOG.md 2026-10-08."
+    database: OLIST_DB
+    schema: RAW
+
+    tables:
+      - name: orders
+        description: "One row per customer order. Grain: order_id."
+        config:
+          loaded_at_field: order_purchase_timestamp
+          freshness:
+            warn_after: {count: 72, period: hour}
+            error_after: {count: 168, period: hour}
+            filter: order_purchase_timestamp >= '2016-01-01'
+        columns:
+          - name: order_id
+            description: "Primary key."
+          - name: customer_id
+            description: "FK to customers.customer_id (per-order id, not stable per person)."
+
+      - name: customers
+        description: "One row per customer_id. customer_id is unique per order; customer_unique_id is the stable person-level identifier."
+        columns:
+          - name: customer_id
+            description: "Primary key — unique per order."
+          - name: customer_unique_id
+            description: "Stable identifier across orders — use this for LTV."
+
+      - name: order_items
+        description: "One row per item within an order. Grain: (order_id, order_item_id)."
+
+      - name: order_payments
+        description: "One row per payment transaction. One order can have multiple payment rows (split payments / installments)."
+
+      - name: order_reviews
+        description: "Zero-or-one review per order. Nulls expected — not every order gets reviewed."
+
+      - name: products
+        description: "One row per product_id. Portuguese category names — join to product_category_name_translation for English."
+
+      - name: sellers
+        description: "One row per seller_id."
+
+      - name: geolocation
+        description: "Zip prefix → lat/lng. Known duplicates on zip prefix (multiple coords per prefix)."
+
+      - name: product_category_name_translation
+        description: "Portuguese → English category name map."
