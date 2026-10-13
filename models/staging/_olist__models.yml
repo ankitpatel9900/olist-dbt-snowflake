@@ -65,14 +65,25 @@ models:
           - not_null
 
   - name: stg_olist__order_reviews
-    description: "Zero-or-one review per order. ~800 duplicate review_ids exist by design (edits); dedup lives in intermediate, not here. Hence NO unique test on review_id — the staging invariant is lossless mirror of raw."
+    description: >
+      One row per (review_id, order_id). `review_id` alone is NOT unique —
+      it represents a reviewer session that can span multiple orders.
+      True grain is the composite (review_id, order_id). Verified by
+      spot-check 2026-10-12: 789 duplicated review_ids, 100% cross-posted
+      across different order_ids, 0 same-order edits.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - review_id
+            - order_id
     columns:
       - name: review_id
-        description: "Not unique at staging (duplicates expected). Dedup in int_order_reviews_deduplicated."
-        data_tests:
+        description: "Reviewer session identifier. NOT unique on its own — see model description."
+        tests:
           - not_null
       - name: order_id
-        data_tests:
+        description: "Order this review row is attached to. Combines with review_id to form the composite key."
+        tests:
           - not_null
 
   - name: stg_olist__products
